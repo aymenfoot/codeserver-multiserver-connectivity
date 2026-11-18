@@ -1,0 +1,91 @@
+name: Fresh VPS SSH Port 443 Setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup-ssh-443:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH key
+        env:
+          DEPLOY_KEY: ${{ secrets.FRESH_VPS_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/fresh_vps_deploy
+          chmod 600 ~/.ssh/fresh_vps_deploy
+
+          # Obtain host key for strict verification
+          echo "=== Obtaining host key ==="
+          HOST_KEY=$(ssh-keyscan -p 22 94.237.62.93 2>/dev/null | grep ssh-ed25519 | awk '{print $3}')
+          echo "94.237.62.93 ssh-ed25519 $HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect current SSH configuration
+        run: |
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@94.237.62.93 "
+            echo '=== Port directives in sshd_config ==='
+            grep -n '^Port\|^#Port' /etc/ssh/sshd_config || echo 'No Port directives found'
+            echo '=== Current listeners ==='
+            ss -tlnp | grep -E ':22|:443' || echo 'No listeners on 22 or 443'
+            echo '=== Firewall status ==='
+            ufw status 2>/dev/null || iptables -L -n 2>/dev/null | head -10
+            echo '=== SSH service status ==='
+            systemctl status ssh.service --no-pager 2>/dev/null || systemctl status ssh --no-pager 2>/dev/null
+            echo '=== SSH socket status ==='
+            systemctl status ssh.socket --no-pager 2>/dev/null || echo 'No ssh.socket'
+          "
+
+      - name: Configure SSH ports 22 and 443
+        run: |
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes root@94.237.62.93 "
+            # Backup config
+            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup.$(date +%s)
+            # Ensure Port 22 is active
+            sed -i 's/^#Port 22/Port 22/' /etc/ssh/sshd_config
+            # Add Port 443 if not present
+            grep -q '^Port 443' /etc/ssh/sshd_config || echo 'Port 443' >> /etc/ssh/sshd_config
+            echo '=== Port directives after change ==='
+            grep -n '^Port' /etc/ssh/sshd_config
+          "
+
+      - name: Validate SSH config
+        run: |
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes root@94.237.62.93 \
+            "sshd -t && echo 'CONFIG_VALID' || echo 'CONFIG_INVALID'"
+
+      - name: Disable socket activation, enable daemon mode (Ubuntu 26.04)
+        run: |
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes root@94.237.62.93 "
+            echo '=== Managing systemd units ==='
+            systemctl disable ssh.socket 2>/dev/null && echo 'ssh.socket disabled' || echo 'ssh.socket disable skipped'
+            systemctl enable ssh.service 2>/dev/null && echo 'ssh.service enabled' || echo 'ssh.service enable skipped'
+            systemctl stop ssh.socket 2>/dev/null && echo 'ssh.socket stopped' || echo 'ssh.socket stop skipped'
+            systemctl daemon-reload
+          "
+
+      - name: Restart SSH service
+        run: |
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes root@94.237.62.93 \
+            "systemctl restart ssh.service && echo 'SSH_RESTARTED' && sleep 3"
+
+      - name: Verify both ports 22 and 443
+        run: |
+          echo "=== Testing port 22 ==="
+          ssh -i ~/.ssh/fresh_vps_deploy -p 22 -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@94.237.62.93 "echo 'PORT22_OK'" || echo "PORT22_FAILED"
+          
+          echo "=== Testing port 443 ==="
+          ssh -i ~/.ssh/fresh_vps_deploy -p 443 -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@94.237.62.93 "echo 'PORT443_OK'" || echo "PORT443_FAILED"
+          
+          echo "=== Final listener check ==="
+          ssh -i ~/.ssh/fresh_vps_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes root@94.237.62.93 "
+            ss -tlnp | grep -E ':22|:443'
+            echo '=== SSH process ==='
+            ps aux | grep sshd | head -5
+          "
+
