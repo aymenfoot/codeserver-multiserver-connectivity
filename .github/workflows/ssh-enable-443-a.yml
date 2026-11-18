@@ -1,0 +1,60 @@
+name: Enable SSH on port 443 - Server A
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enable-443:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enable SSH on port 443 (Server A)
+        env:
+          DEPLOY_KEY: ${{ secrets.CODESERVER_A_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/codeserver_server_a_ed25519
+          chmod 600 ~/.ssh/codeserver_server_a_ed25519
+
+          HOST_IP="94.237.62.93"
+          HOST_KEY=$(ssh-keyscan -p 22 "$HOST_IP" 2>/dev/null | grep ssh-ed25519 | awk '{print $3}')
+          echo "$HOST_IP ssh-ed25519 $HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          echo "=== Preflight inspection ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@"$HOST_IP" "
+            echo '=== OS ==='; cat /etc/os-release | head -3
+            echo '=== Port directives ==='; grep -n '^Port\|^#Port' /etc/ssh/sshd_config || echo 'No Port directives'
+            echo '=== Listeners ==='; ss -tlnp | grep -E ':22|:443' || echo 'No listeners on 22 or 443'
+            echo '=== Firewall ==='; ufw status 2>/dev/null || echo 'ufw not available'
+          "
+
+          echo "=== Add Port 443 ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes root@"$HOST_IP" "
+            sed -i 's/^#Port 22/Port 22/' /etc/ssh/sshd_config
+            grep -q '^Port 443' /etc/ssh/sshd_config || echo 'Port 443' >> /etc/ssh/sshd_config
+            grep -n '^Port' /etc/ssh/sshd_config
+          "
+
+          echo "=== Validate config ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes root@"$HOST_IP" \
+            "sshd -t && echo 'CONFIG_VALID' || echo 'CONFIG_INVALID'"
+
+          echo "=== Disable socket, enable daemon ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes root@"$HOST_IP" "
+            systemctl disable ssh.socket 2>/dev/null && echo 'socket disabled' || echo 'socket disable skipped'
+            systemctl enable ssh.service 2>/dev/null && echo 'service enabled' || echo 'service enable skipped'
+            systemctl stop ssh.socket 2>/dev/null && echo 'socket stopped' || echo 'socket stop skipped'
+          "
+
+          echo "=== Restart SSH ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes root@"$HOST_IP" \
+            "systemctl restart ssh.service && echo 'SSH_RESTARTED' && sleep 3"
+
+          echo "=== Verify both ports ==="
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -p 22 -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@"$HOST_IP" "echo 'PORT22_OK'" || echo "PORT22_FAILED"
+          ssh -i ~/.ssh/codeserver_server_a_ed25519 -p 443 -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=10 root@"$HOST_IP" "echo 'PORT443_OK'" || echo "PORT443_FAILED"
