@@ -1,0 +1,42 @@
+# RAGFlow v1.0.0 service configuration template.
+# Copy to service_conf.yaml on the target server and adjust.
+# This template mirrors the official RAGFlow docker service_conf.yaml structure.
+
+# Embedding / LLM / rerank providers are configured via the RAGFlow UI or
+# provider API at runtime. No credentials are stored here.
+
+version: 1.0
+
+database:
+  type: mysql
+  host: ragflow-mysql
+  port: 3306
+  user: ragflow
+  password: "${RAGFLOW_DB_PASSWORD:-REPLACE_ME}"
+  database: ragflow
+
+cache:
+  type: redis
+  host: ragflow-redis
+  port: 6379
+  password: "${REDIS_PASSWORD:-REPLACE_ME}"
+
+object_storage:
+  type: minio
+  endpoint: ragflow-minio:9000
+  bucket: "${MINIO_BUCKET:-ragflow}"
+  access_key: "${MINIO_ROOT_USER:-REPLACE_ME}"
+  secret_key: "${MINIO_ROOT_PASSWORD:-REPLACE_ME}"
+
+search:
+  type: elasticsearch
+  host: ragflow-elasticsearch
+  port: 9200
+
+kvrocks:
+  host: ragflow-kvrocks
+  port: 6379
+
+sandbox:
+  enabled: true
+  docker_socket: /var/run/docker.sock

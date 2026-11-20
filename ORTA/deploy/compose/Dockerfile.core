@@ -1,0 +1,20 @@
+FROM python:3.14-slim
+
+ENV ORTA_DATABASE_URL="" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY core/ /app/core/
+WORKDIR /app/core
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir fastapi uvicorn sqlalchemy alembic requests python-multipart
+
+# Run migrations, then start API
+CMD ["sh", "-c", "python3 -m alembic upgrade head && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000"]

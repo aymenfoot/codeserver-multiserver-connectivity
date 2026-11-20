@@ -1,0 +1,62 @@
+# SearXNG settings for ORTA deployment.
+# JSON output enabled for ORTA Bridge discovery. Internal-only instance.
+
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "ORTA SearXNG (internal)"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+    - csv
+    - rss
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  base_url: false
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+  # secret_key overridden by SEARXNG_SECRET environment variable
+  secret_key: "REPLACE_ME_searxng_secret_32_hex_bytes"
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 20
+  enable_http2: true
+
+engines:
+  - name: google
+    engine: google
+    shortcut: go
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+  - name: bing
+    engine: bing
+    shortcut: bi
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+  - name: wikidata
+    engine: wikidata
+    shortcut: wd
+  - name: arxiv
+    engine: arxiv
+    shortcut: arx
+  - name: github
+    engine: github
+    shortcut: gh

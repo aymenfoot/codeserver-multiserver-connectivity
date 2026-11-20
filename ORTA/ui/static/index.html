@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORTA — Unified Intelligence Platform</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="style">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .nav-link.active { background: #eef2ff; color: #4338ca; border-left: 3px solid #4338ca; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+  .bg-ok { background: #dcfce7; color: #166534; }
+  .bg-warn { background: #fef3c7; color: #92400e; }
+  .bg-err { background: #fee2e2; color: #991b1b; }
+  .bg-muted { background: #e5e7eb; color: #374151; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot-ok { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.2); }
+  .dot-warn { background: #eab308; box-shadow: 0 0 0 2px rgba(234,179,8,0.2); }
+  .dot-err { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.2); }
+  table th { position: sticky; top: 0; background: #f9fafb; z-index: 10; }
+  .skeleton { background: #e5e7eb; border-radius: 4px; height: 16px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-900 h-screen flex overflow-hidden">
+
+<!-- Sidebar -->
+<aside class="w-64 bg-white border-r border-gray-200 flex flex-col z-20">
+  <div class="p-5 border-b border-gray-200">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center text-white font-bold text-xs">O</div>
+      <span class="font-bold text-lg tracking-tight">ORTA</span>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">Discovery &amp; Intelligence</p>
+  </div>
+  <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+    <button onclick="showSection('overview','Global Overview')" class="nav-link active w-full text-left px-3 py-2 rounded text-sm font-medium transition" id="nav-overview">Global Overview</button>
+    <button onclick="showSection('discovery','Source Discovery')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-discovery">Source Discovery</button>
+    <button onclick="showSection('registry','Source Registry')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-registry">Source Registry</button>
+    <button onclick="showSection('crawling','Crawling Operations')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-crawling">Crawling Operations</button>
+    <button onclick="showSection('search','Search')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-search">Search</button>
+    <button onclick="showSection('documents','Documents')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-documents">Documents</button>
+    <button onclick="showSection('kb','Knowledge Base')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-kb">Knowledge Base</button>
+    <button onclick="showSection('evidence','Evidence Explorer')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-evidence">Evidence Explorer</button>
+    <button onclick="showSection('entities','Entities')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-entities">Entities</button>
+    <button onclick="showSection('claims','Claims')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-claims">Claims</button>
+    <button onclick="showSection('investigations','Investigations')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-investigations">Investigations</button>
+    <button onclick="showSection('reports','Reports')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-reports">Reports</button>
+    <button onclick="showSection('jobs','Processing Jobs')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-jobs">Processing Jobs</button>
+    <button onclick="showSection('health','System Health')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-health">System Health</button>
+    <button onclick="showSection('admin','Configuration &amp; Admin')" class="nav-link w-full text-left px-3 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-50 transition" id="nav-admin">Configuration &amp; Admin</button>
+  </nav>
+  <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
+    ORTA Core API: <span id="coreUrl" class="mono text-gray-400 truncate"></span><br>
+    ORTA Bridge API: <span id="bridgeUrl" class="mono text-gray-400 truncate"></span>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="flex-1 overflow-y-auto bg-gray-50 p-6 relative">
+  <!-- Header -->
+  <header class="flex items-center justify-between mb-6">
+    <div>
+      <h1 id="pageTitle" class="text-2xl font-bold">Global Overview</h1>
+      <p id="pageSub" class="text-gray-500 text-sm">Platform status and key metrics from live system data.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="refreshData()" class="px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        Refresh
+      </button>
+      <span class="w-px h-5 bg-gray-300 mx-1"></span>
+      <span id="lastUpdated" class="text-xs text-gray-500 mono">--</span>
+    </div>
+  </header>
+
+  <!-- Sections -->
+  <section id="section-overview" class="section active">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Core Service</p>
+        <p class="text-2xl font-bold" id="stat-core">--</p>
+        <p class="text-xs text-gray-500 mt-1" id="stat-core-sub">checking…</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Bridge Service</p>
+        <p class="text-2xl font-bold" id="stat-bridge">--</p>
+        <p class="text-xs text-gray-500 mt-1" id="stat-bridge-sub">checking…</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Evidence Records</p>
+        <p class="text-3xl font-bold" id="stat-evidence">--</p>
+        <p class="text-xs text-gray-500 mt-1" id="stat-evidence-sub">from live Core DB</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Sources Registered</p>
+        <p class="text-3xl font-bold" id="stat-sources">--</p>
+        <p class="text-xs text-gray-500 mt-1" id="stat-sources-sub">source registry</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 card p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-4">Processing Jobs</p>
+        <div class="overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead><tr class="border-b border-gray-200">
+              <th class="pb-2 text-gray-500">Job ID</th><th class="pb-2 text-gray-500">Type</th><th class="pb-2 text-gray-500">Status</th><th class="pb-2 text-gray-500">Retries</th><th class="pb-2 text-gray-500">Dead Letter</th>
+            </tr></thead>
+            <tbody id="jobTableBody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-4">Recent Errors</p>
+        <div id="errorList" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No errors recorded.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-discovery" class="section">
+    <div class="max-w-2xl">
+      <div class="card p-5 mb-4">
+        <h2 class="text-lg font-bold mb-2">Source Discovery</h2>
+        <p class="text-sm text-gray-600 mb-4">Query SearXNG via the ORTA Bridge to discover new sources. Results come from the live SearXNG JSON endpoint through Bridge.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input id="discQuery" type="text" placeholder="Search query…" class="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+          <input id="discLimit" type="number" value="10" min="1" max="50" class="px-3 py-2 border border-gray-300 rounded text-center">
+          <button onclick="runDiscovery()" class="px-4 py-2 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700">Discover</button>
+        </div>
+        <div id="discStatus" class="mt-3 text-sm text-gray-600"></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-bold text-gray-500 uppercase mb-3">Discovery Results</h3>
+        <div id="discResults" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No results yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-registry" class="section">
+    <div class="max-w-4xl">
+      <div class="flex justify-between items-end mb-4">
+        <div>
+          <h2 class="text-lg font-bold">Source Registry</h2>
+          <p class="text-sm text-gray-600">Persistent registry of discovered sources with classification and crawl policy.</p>
+        </div>
+        <button onclick="openSourceModal()" class="px-4 py-2 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700">Register Source</button>
+      </div>
+      <div class="card overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-gray-500 font-medium">Source ID</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Type</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Domain</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Category</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Reliability</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Last Access</th>
+            <th class="px-4 py-3 text-gray-500 font-medium text-right">Actions</th>
+          </tr></thead>
+          <tbody id="registryTableBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-crawling" class="section">
+    <div class="max-w-3xl">
+      <div class="card p-5 mb-4">
+        <h2 class="text-lg font-bold mb-2">Crawling Operations</h2>
+        <p class="text-sm text-gray-600 mb-4">Submit crawl/normalize jobs. Jobs are processed by ORTA Bridge with retry, dead-letter, and idempotency (content-hash dedupe).</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input id="crawlUrl" type="text" placeholder="URL to crawl" class="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <button onclick="submitCrawlJob()" class="px-4 py-2 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700">Crawl Job</button>
+        </div>
+        <div id="crawlStatus" class="mt-3 text-sm text-gray-600"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-search" class="section">
+    <div class="max-w-3xl">
+      <div class="card p-5 mb-4">
+        <h2 class="text-lg font-bold mb-2">Search</h2>
+        <p class="text-sm text-gray-600 mb-4">Search via SearXNG through ORTA Bridge. SearXNG is an upstream metasearch provider.</p>
+        <div id="searchUnavail" class="bg-yellow-50 border border-yellow-200 p-4 rounded mb-4 text-sm text-yellow-800">
+          <strong>SearXNG not deployed in this environment.</strong> Discovery search calls go to Bridge→SearXNG and will fail gracefully until SearXNG is deployed (Phase 6 blocked — no Docker/root).
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input id="searchQuery" type="text" placeholder="Search…" class="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <input id="searchLimit" type="number" value="10" class="px-3 py-2 border border-gray-300 rounded text-center">
+          <button onclick="runSearch()" class="px-4 py-2 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700">Search</button>
+        </div>
+        <div id="searchStatus" class="mt-3 text-sm text-gray-600"></div>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-bold text-gray-500 uppercase mb-3">Search Results</h3>
+        <div id="searchResults" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No results yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-documents" class="section">
+    <div class="max-w-5xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Documents</h2>
+        <p class="text-sm text-gray-600 mb-4">Evidence documents collected and content-hashed by ORTA Bridge.</p>
+        <div class="overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th class="px-4 py-3 text-gray-500 font-medium">Evidence ID</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Original URL</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Content Hash</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Confidence</th>
+              <th class="px-4 py-3 text-gray-500 font-medium text-right">Collected</th>
+            </tr></thead>
+            <tbody id="documentsTableBody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-kb" class="section">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Entities</h2>
+        <p class="text-sm text-gray-600 mb-4">Extracted entity profiles with resolution and alias management.</p>
+        <div id="kbEntities" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No entities yet.</div>
+        </div>
+      </div>
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Claims</h2>
+        <p class="text-sm text-gray-600 mb-4">Claims with source facts vs. model interpretations and confidence.</p>
+        <div id="kbClaims" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No claims yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-evidence" class="section">
+    <div class="max-w-5xl">
+      <div class="flex justify-between items-end mb-4">
+        <div>
+          <h2 class="text-lg font-bold">Evidence Explorer</h2>
+          <p class="text-sm text-gray-600">Trace every assertion to supporting evidence with provenance and processing status.</p>
+        </div>
+        <input id="evSearch" type="text" placeholder="Filter evidence…" class="px-3 py-2 border border-gray-300 rounded w-64 focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <div class="card overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-50"><tr>
+            <th class="px-4 py-3 text-gray-500 font-medium">Evidence ID</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Original URL</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Doc ID (RAGFlow)</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Provenance</th>
+            <th class="px-4 py-3 text-gray-500 font-medium">Confidence</th>
+            <th class="px-4 py-3 text-gray-500 font-medium text-right">Actions</th>
+          </tr></thead>
+          <tbody id="evidenceTableBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-entities" class="section">
+    <div class="max-w-4xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Entity Registry</h2>
+        <p class="text-sm text-gray-600 mb-4">Entity profiles, relationships, duplicate detection, identity confidence. Ambiguous identities are never auto-merged without sufficient evidence.</p>
+        <div class="overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th class="px-4 py-3 text-gray-500 font-medium">Entity ID</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Name</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Type</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Identity Confidence</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Aliases</th>
+              <th class="px-4 py-3 text-gray-500 font-medium text-right">Actions</th>
+            </tr></thead>
+            <tbody id="entitiesTableBody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-claims" class="section">
+    <div class="max-w-5xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Claims</h2>
+        <p class="text-sm text-gray-600 mb-4">Claims with statement type (source fact / interpretation / inference / hypothesis), supporting evidence, and contradictions.</p>
+        <div class="overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th class="px-4 py-3 text-gray-500 font-medium">Claim ID</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Statement</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Type</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Confidence</th>
+              <th class="px-4 py-3 text-gray-500 font-medium text-right">Actions</th>
+            </tr></thead>
+            <tbody id="claimsTableBody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-investigations" class="section">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 card p-5">
+        <div class="flex justify-between items-end mb-4">
+          <div>
+            <h2 class="text-lg font-bold">Investigations</h2>
+            <p class="text-sm text-gray-600">Create investigations from questions or topics. Structured findings with traceable evidence.</p>
+          </div>
+          <button onclick="openInvModal()" class="px-4 py-2 bg-indigo-600 text-white rounded font-medium hover:bg-indigo-700">Start Investigation</button>
+        </div>
+        <div id="investigationsList" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No investigations yet.</div>
+        </div>
+      </div>
+      <div class="card p-5">
+        <h3 class="text-sm font-bold text-gray-500 uppercase mb-4">Active Investigation</h3>
+        <div id="activeInvestigation" class="text-sm text-gray-400 text-center py-4">Select an investigation to view details.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-reports" class="section">
+    <div class="max-w-4xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Reports</h2>
+        <p class="text-sm text-gray-600 mb-4">Traceable reports: findings, sources, evidence, entities, claims, contradictions, confidence limitations, investigation history.</p>
+        <div id="reportsList" class="space-y-3">
+          <div class="text-sm text-gray-400 text-center py-4">No reports yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-jobs" class="section">
+    <div class="max-w-5xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Processing Jobs</h2>
+        <p class="text-sm text-gray-600 mb-4">Persistent job state with retry, dead-letter handling, and reconciliation.</p>
+        <div class="overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th class="px-4 py-3 text-gray-500 font-medium">Job ID</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Type</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Status</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Retries</th>
+              <th class="px-4 py-3 text-gray-500 font-medium">Dead Letter</th>
+              <th class="px-4 py-3 text-gray-500 font-medium text-right">Created</th>
+            </tr></thead>
+            <tbody id="jobsTableBody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-health" class="section">
+    <div class="max-w-3xl">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="card p-5">
+          <h2 class="text-lg font-bold mb-2">ORTA Core</h2>
+          <div id="healthCore" class="space-y-3">
+            <div class="text-sm text-gray-400 text-center py-4">checking…</div>
+          </div>
+        </div>
+        <div class="card p-5">
+          <h2 class="text-lg font-bold mb-2">ORTA Bridge</h2>
+          <div id="healthBridge" class="space-y-3">
+            <div class="text-sm text-gray-400 text-center py-4">checking…</div>
+          </div>
+        </div>
+      </div>
+      <div class="card p-5 mt-6">
+        <h2 class="text-lg font-bold mb-2">Upstream Services (target-state)</h2>
+        <p class="text-sm text-gray-600 mb-3">SearXNG and RAGFlow are Docker-native upstreams; not deployable in this environment (no Docker/root). Status shown below reflects configuration only.</p>
+        <table class="w-full text-left text-sm">
+          <thead><tr><th class="px-4 py-3 text-gray-500 font-medium">Service</th><th class="px-4 py-3 text-gray-500 font-medium">Status</th><th class="px-4 py-3 text-gray-500 font-medium">Blocker</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="px-4 py-3 border-t border-gray-100">SearXNG <span class="text-xs text-gray-500">searxng/searxng:2026.11.11-626105eec</span></td>
+              <td class="px-4 py-3 border-t border-gray-100"><span class="badge bg-warn">Not deployed</span></td>
+              <td class="px-4 py-3 border-t border-gray-100 text-sm text-gray-600">No Docker/root</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 border-t border-gray-100">RAGFlow <span class="text-xs text-gray-500">infiniflow/ragflow:v1.0.0</span></td>
+              <td class="px-4 py-3 border-t border-gray-100"><span class="badge bg-warn">Not deployed</span></td>
+              <td class="px-4 py-3 border-t border-gray-100 text-sm text-gray-600">No Docker/root; RAM/disk</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 border-t border-gray-100">CROWler</td>
+              <td class="px-4 py-3 border-t border-gray-100"><span class="badge bg-err">Unresolved</span></td>
+              <td class="px-4 py-3 border-t border-gray-100 text-sm text-gray-600">No official repo</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="section-admin" class="section">
+    <div class="max-w-3xl">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold mb-2">Configuration &amp; Administration</h2>
+        <p class="text-sm text-gray-600 mb-4">Platform configuration. Secrets are stored in <span class="mono">ORTA/secrets/</span> (gitignored) and never logged.</p>
+        <div class="bg-gray-900 p-4 rounded text-sm text-gray-300 mono overflow-x-auto">
+          ORTA_CORE_URL=http://127.0.0.1:8100<br>
+          ORTA_BRIDGE_URL=http://127.0.0.1:8101<br>
+          ORTA_SEARXNG_URL=http://127.0.0.1:18080 (target)<br>
+          ORTA_RAGFLOW_URL=http://127.0.0.1:80 (target)<br>
+          ORTA_DATABASE_URL=sqlite:////home/coder/workspace/ORTA/storage/orta.db<br>
+          SEARXNG_IMAGE=searxng/searxng:2026.11.11-626105eec<br>
+          RAGFLOW_VERSION=v1.0.0<br>
+          CROWLER_STATUS=unresolved (no official repo)
+        </div>
+        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+          <p class="font-semibold mb-2">Environment notes</p>
+          <ul class="list-disc list-inside space-y-1 text-sm">
+            <li>No root/sudo; Docker unavailable; user namespaces blocked.</li>
+            <li>Core and Bridge run natively (Python + SQLite) on this host.</li>
+            <li>Upstream deployment (SearXNG, RAGFlow, CROWler) blocked until Docker/root available.</li>
+            <li>All displayed metrics come from live Core/Bridge APIs — no invented statistics.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modals -->
+  <div id="sourceModal" class="fixed inset-0 z-50 hidden" aria-labelledby="sourceModalTitle">
+    <div class="fixed inset-0 bg-black bg-opacity-50" onclick="closeModal('sourceModal')"></div>
+    <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-xl w-96 max-w-md">
+      <h3 id="sourceModalTitle" class="text-lg font-bold mb-4">Register Source</h3>
+      <form id="sourceForm" onsubmit="registerSource(event)">
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Source ID</label><input id="sSourceId" type="text" required class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Type</label><select id="sType" class="w-full px-2 py-1 border border-gray-300 rounded"><option>website</option><option>search_engine</option><option>rss</option><option>sitemap</option><option>commoncrawl</option><option>public_dataset</option><option>document</option><option>other</option></select></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Domain</label><input id="sDomain" type="text" class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Category</label><input id="sCategory" type="text" class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Reliability (0-1)</label><input id="sReliability" type="number" value="1" min="0" max="1" step="0.1" class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button type="button" onclick="closeModal('sourceModal')" class="px-3 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="invModal" class="fixed inset-0 z-50 hidden" aria-labelledby="invModalTitle">
+    <div class="fixed inset-0 bg-black bg-opacity-50" onclick="closeModal('invModal')"></div>
+    <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-xl w-96 max-w-md">
+      <h3 id="invModalTitle" class="text-lg font-bold mb-4">Start Investigation</h3>
+      <form id="invForm" onsubmit="createInvestigation(event)">
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Investigation ID</label><input id="iInvId" type="text" required class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Title</label><input id="iTitle" type="text" required class="w-full px-2 py-1 border border-gray-300 rounded"></div>
+        <div class="mb-3"><label class="block text-xs text-gray-500 mb-1">Research Question</label><textarea id="iQuestion" rows="3" required class="w-full px-2 py-1 border border-gray-300 rounded"></textarea></div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button type="button" onclick="closeModal('invModal')" class="px-3 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">Start</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const CORE = "/api/core";
+const BRIDGE = "/api/bridge";
+document.getElementById('coreUrl').textContent = "http://127.0.0.1:8100";
+document.getElementById('bridgeUrl').textContent = "http://127.0.0.1:8101";
+
+function showSection(id, title){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('section-'+id).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n=>{n.classList.remove('active');n.classList.add('text-gray-600');});
+  const el=document.getElementById('nav-'+id); if(el){el.classList.add('active');el.classList.remove('text-gray-600');}
+  document.getElementById('pageTitle').textContent = title;
+  document.getElementById('pageSub').textContent = "Live data from ORTA Core and Bridge APIs.";
+  if(id==='overview') loadOverview();
+  if(id==='registry') loadRegistry();
+  if(id==='documents') loadDocuments();
+  if(id==='kb') loadKB();
+  if(id==='evidence') loadEvidence();
+  if(id==='entities') loadEntities();
+  if(id==='claims') loadClaims();
+  if(id==='investigations') loadInvestigations();
+  if(id==='reports') loadReports();
+  if(id==='jobs') loadJobs();
+  if(id==='health') loadHealth();
+  if(id==='discovery'){ document.getElementById('discResults').innerHTML='<div class="text-sm text-gray-400 text-center py-4">Enter a query and click Discover.</div>'; }
+}
+
+async function fetchJson(url, opts={}){
+  try{
+    const res = await fetch(url, {headers:{'Accept':'application/json','Content-Type':'application/json'}, ...opts});
+    if(!res.ok) return {error:true, status:res.status, text:await res.text()};
+    return {error:false, data:await res.json()};
+  }catch(e){ return {error:true, text:e.message}; }
+}
+
+async function refreshData(){
+  if(document.getElementById('section-overview').classList.contains('active')) loadOverview();
+  if(document.getElementById('section-jobs').classList.contains('active')) loadJobs();
+  if(document.getElementById('section-health').classList.contains('active')) loadHealth();
+  document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+async function loadOverview(){
+  const r = await fetchJson("/api/dashboard");
+  if(r.error){ return; }
+  const d = r.data;
+  const svc = (s)=> s.status==='ok' ? '<span class="status-dot dot-ok"></span>operational' : (s.status==='unreachable'?'<span class="status-dot dot-err"></span>unreachable':'<span class="status-dot dot-warn"></span>degraded');
+  document.getElementById('stat-core').innerHTML = svc(d.services.core||{});
+  document.getElementById('stat-core-sub').textContent = (d.services.core||{}).status;
+  document.getElementById('stat-bridge').innerHTML = svc(d.services.bridge||{});
+  document.getElementById('stat-bridge-sub').textContent = (d.services.bridge||{}).status;
+  document.getElementById('stat-evidence').textContent = d.counts.evidence??0;
+  document.getElementById('stat-sources').textContent = d.counts.sources??0;
+  const tb = document.getElementById('jobTableBody');
+  const jobs = d.jobs.all??[];
+  tb.innerHTML = jobs.slice(0,10).map(j=>`
+    <tr><td class="mono text-xs">${j.job_id}</td><td class="text-xs">${j.job_type}</td>
+    <td><span class="badge ${j.status==='completed'?'bg-ok':j.status==='failed'||j.status==='dead_letter'?'bg-err':'bg-muted'}">${j.status}</span></td>
+    <td class="text-xs">${j.retry_count??0}</td><td class="text-xs">${j.dead_letter?'yes':'—'}</td></tr>
+  `).join('')||'<tr><td colspan="5" class="text-sm text-gray-400 text-center py-4">No jobs.</td></tr>';
+  const el = document.getElementById('errorList');
+  const fails = d.jobs.failed??[];
+  const dl = d.jobs.dead_letter??[];
+  if(fails.length===0&&dl.length===0){ el.innerHTML='<div class="text-sm text-gray-400 text-center py-4">No errors recorded.</div>'; return; }
+  el.innerHTML = [...fails,...dl].slice(0,8).map(j=>`<div class="flex items-start gap-2"><span class="status-dot dot-err"></span><div class="text-sm"><div class="font-mono text-xs">${j.job_id}</div><div class="text-gray-700">${j.error||'failed'}</div></div></div>`).join('');
+}
+
+async function loadRegistry(){
+  const r = await fetchJson(`${CORE}/sources?limit=100`);
+  const tb = document.getElementById('registryTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="7" class="text-sm text-gray-400 text-center py-4">No sources registered.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(s=>`
+    <tr><td class="mono text-xs">${s.source_id}</td><td class="text-xs">${s.source_type}</td><td class="text-xs truncate" title="${s.domain||''}">${s.domain||'—'}</td><td class="text-xs">${s.category||'—'}</td><td><span class="badge bg-muted">${(s.reliability*100).toFixed(0)}%</span></td><td class="text-xs">${s.last_successful_access||'—'}</td><td class="text-right"><button class="text-xs text-indigo-600 hover:underline">View</button></td></tr>
+  `).join('');
+}
+
+async function loadDocuments(){
+  const r = await fetchJson(`${CORE}/evidence?limit=100`);
+  const tb = document.getElementById('documentsTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="5" class="text-sm text-gray-400 text-center py-4">No documents.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(e=>`
+    <tr><td class="mono text-xs">${e.evidence_id}</td><td class="text-xs truncate" title="${e.original_url}">${e.original_url}</td><td class="mono text-xs">${e.content_hash}</td><td><span class="badge bg-muted">${e.confidence}</span></td><td class="text-xs text-right">${e.collection_timestamp}</td></tr>
+  `).join('');
+}
+
+async function loadKB(){
+  const [er, cr] = await Promise.all([fetchJson(`${CORE}/entities?limit=50`), fetchJson(`${CORE}/claims?limit=50`)]);
+  const etb = document.getElementById('kbEntities');
+  if(er.error||!er.data||er.data.length===0) etb.innerHTML='<div class="text-sm text-gray-400 text-center py-4">No entities.</div>';
+  else etb.innerHTML = er.data.map(e=>`<div class="flex items-center gap-2 p-2 border rounded bg-gray-50"><span class="font-mono text-xs text-gray-500">${e.entity_id}</span><span class="font-medium">${e.name}</span><span class="text-xs text-gray-400">${e.entity_type}</span><span class="ml-auto badge bg-muted">${e.identity_confidence}</span></div>`).join('');
+  const ctb = document.getElementById('kbClaims');
+  if(cr.error||!cr.data||cr.data.length===0) ctb.innerHTML='<div class="text-sm text-gray-400 text-center py-4">No claims.</div>';
+  else ctb.innerHTML = cr.data.map(c=>`<div class="flex items-center gap-2 p-2 border rounded bg-gray-50"><span class="font-mono text-xs text-gray-500">${c.claim_id}</span><span class="line-clamp-1">${c.statement}</span><span class="ml-auto text-xs text-gray-400">${c.statement_type}</span></div>`).join('');
+}
+
+async function loadEvidence(){
+  const r = await fetchJson(`${CORE}/evidence?limit=100`);
+  const tb = document.getElementById('evidenceTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="6" class="text-sm text-gray-400 text-center py-4">No evidence.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(e=>`
+    <tr><td class="mono text-xs">${e.evidence_id}</td><td class="text-xs truncate" title="${e.original_url}">${e.original_url}</td><td class="mono text-xs">${e.document_id||'—'}</td><td class="text-xs">${(e.provenance&&e.provenance.tool)||'—'}</td><td><span class="badge bg-muted">${e.confidence}</span></td><td class="text-right"><button class="text-xs text-indigo-600 hover:underline" onclick="viewEvidence('${e.evidence_id}')">View</button></td></tr>
+  `).join('');
+}
+
+async function loadEntities(){
+  const r = await fetchJson(`${CORE}/entities?limit=100`);
+  const tb = document.getElementById('entitiesTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="6" class="text-sm text-gray-400 text-center py-4">No entities.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(e=>`
+    <tr><td class="mono text-xs">${e.entity_id}</td><td class="text-xs">${e.name}</td><td class="text-xs">${e.entity_type}</td><td><span class="badge bg-muted">${e.identity_confidence}</span></td><td class="text-xs">${(e.alias_management||[]).join(', ')||'—'}</td><td class="text-right"><button class="text-xs text-indigo-600 hover:underline">View</button></td></tr>
+  `).join('');
+}
+
+async function loadClaims(){
+  const r = await fetchJson(`${CORE}/claims?limit=100`);
+  const tb = document.getElementById('claimsTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="5" class="text-sm text-gray-400 text-center py-4">No claims.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(c=>`
+    <tr><td class="mono text-xs">${c.claim_id}</td><td class="text-xs truncate" title="${c.statement}">${c.statement}</td><td class="text-xs">${c.statement_type}</td><td><span class="badge bg-muted">${c.confidence}</span></td><td class="text-right"><button class="text-xs text-indigo-600 hover:underline">View</button></td></tr>
+  `).join('');
+}
+
+async function loadInvestigations(){
+  const r = await fetchJson(`${CORE}/investigations?limit=50`);
+  const el = document.getElementById('investigationsList');
+  if(r.error||!r.data||r.data.length===0){ el.innerHTML='<div class="text-sm text-gray-400 text-center py-4">No investigations.</div>'; return; }
+  el.innerHTML = r.data.map(i=>`<div class="p-3 border rounded bg-white cursor-pointer hover:bg-gray-50" onclick="selectInvestigation('${i.investigation_id}','${i.title}')"><div class="font-medium">${i.title}</div><div class="text-xs text-gray-500">${i.research_question}</div><div class="text-xs text-gray-400 mt-1">${i.investigation_id} • ${i.status}</div></div>`).join('');
+}
+
+function selectInvestigation(id, title){
+  document.getElementById('activeInvestigation').innerHTML = `<div class="font-medium">${title}</div><div class="text-xs text-gray-500">${id}</div><div class="text-xs text-gray-400 mt-1">Select evidence, entities, and claims to build findings.</div>`;
+}
+
+async function loadReports(){
+  const r = await fetchJson(`${CORE}/reports?limit=50`);
+  const el = document.getElementById('reportsList');
+  if(r.error||!r.data||r.data.length===0){ el.innerHTML='<div class="text-sm text-gray-400 text-center py-4">No reports.</div>'; return; }
+  el.innerHTML = r.data.map(rep=>`<div class="p-3 border rounded bg-white"><div class="font-medium">${rep.title}</div><div class="text-xs text-gray-500">${rep.report_id}</div><div class="text-xs text-gray-400 mt-1">${rep.confidence_limitations||'no limitations noted'}</div></div>`).join('');
+}
+
+async function loadJobs(){
+  const r = await fetchJson(`${BRIDGE}/jobs?limit=100`);
+  const tb = document.getElementById('jobsTableBody');
+  if(r.error||!r.data||r.data.length===0){ tb.innerHTML='<tr><td colspan="6" class="text-sm text-gray-400 text-center py-4">No jobs.</td></tr>'; return; }
+  tb.innerHTML = r.data.map(j=>`
+    <tr><td class="mono text-xs">${j.job_id}</td><td class="text-xs">${j.job_type}</td><td><span class="badge ${j.status==='completed'?'bg-ok':j.status==='failed'||j.status==='dead_letter'?'bg-err':'bg-muted'}">${j.status}</span></td><td class="text-xs">${j.retry_count??0}</td><td class="text-xs">${j.dead_letter?'yes':'—'}</td><td class="text-xs text-right">${j.created_at}</td></tr>
+  `).join('');
+}
+
+async function loadHealth(){
+  const [cr, br] = await Promise.all([fetchJson(`${CORE}/healthz`), fetchJson(`${BRIDGE}/healthz`)]);
+  const render=(elId, d, svc)=>{
+    const ok = d&&d.status==='ok'&&d.database==='ok';
+    document.getElementById(elId).innerHTML = ok?
+      `<div class="flex items-start gap-3"><span class="status-dot dot-ok"></span><div><div class="font-medium">${svc}</div><div class="text-xs text-gray-600">database: ${d.database||'—'}</div></div></div>` :
+      `<div class="flex items-start gap-3"><span class="status-dot dot-err"></span><div class="text-sm">${svc} unreachable</div></div>`;
+  };
+  render('healthCore', cr.error?null:cr.data, 'ORTA Core');
+  render('healthBridge', br.error?null:br.data, 'ORTA Bridge');
+}
+
+async function runDiscovery(){
+  const q=document.getElementById('discQuery').value.trim();
+  const lim=document.getElementById('discLimit').value||10;
+  const st=document.getElementById('discStatus'); const res=document.getElementById('discResults');
+  st.textContent="Querying SearXNG via Bridge…";
+  res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">loading…</div>';
+  const r = await fetchJson(`${BRIDGE}/discover`, {method:'POST', body:JSON.stringify({query:q, limit:parseInt(lim)})});
+  if(r.error){ st.textContent=`Discovery failed: ${r.text||r.status}`; res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">SearXNG not reachable via Bridge (upstream not deployed).</div>'; return; }
+  st.textContent=`Discovery job ${r.data.job_id} submitted. Polling…`;
+  // poll job
+  for(let i=0;i<10;i++){
+    await new Promise(t=>setTimeout(t,800));
+    const jr = await fetchJson(`${BRIDGE}/jobs/${r.data.job_id}`);
+    if(!jr.error && jr.data.status==='completed'){
+      const result = jr.data.result||{};
+      res.innerHTML = `<div class="text-sm"><div class="font-medium text-gray-700">${result.result_count??0} results for "${q}"</div></div>` + (result.results?result.results.map(x=>`<div class="p-3 border rounded bg-white mt-2"><div class="font-medium">${x.title||'—'}</div><div class="text-xs text-gray-600 mono">${x.url||'—'}</div><div class="text-sm text-gray-700 mt-1">${x.content||''}</div><div class="text-xs text-gray-400 mt-1">engine: ${x.engine||'—'} score: ${x.score||'—'}</div></div>`).join(''):'');
+      st.textContent="Discovery complete.";
+      return;
+    }
+    if(!jr.error && jr.data.status==='failed'){ st.textContent="Discovery failed."; res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">Discovery job failed (see error).</div>'; return; }
+  }
+  st.textContent="Discovery still running (check Processing Jobs).";
+}
+
+async function runSearch(){
+  const q=document.getElementById('searchQuery').value.trim();
+  const res=document.getElementById('searchResults');
+  res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">Searching…</div>';
+  const r = await fetchJson(`${BRIDGE}/discover`, {method:'POST', body:JSON.stringify({query:q, limit:10})});
+  if(r.error){ res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">SearXNG not reachable via Bridge (upstream not deployed).</div>'; return; }
+  const jid=r.data.job_id;
+  for(let i=0;i<10;i++){
+    await new Promise(t=>setTimeout(t,800));
+    const jr = await fetchJson(`${BRIDGE}/jobs/${jid}`);
+    if(!jr.error && jr.data.status==='completed'){
+      const result = jr.data.result||{};
+      res.innerHTML = (result.results?result.results.map(x=>`<div class="p-3 border rounded bg-white mb-2"><div class="font-medium">${x.title||'—'}</div><div class="text-xs text-gray-600 mono">${x.url||'—'}</div><div class="text-sm text-gray-700 mt-1">${x.content||''}</div></div>`).join(''):'<div class="text-sm text-gray-400 text-center py-4">No results.</div>');
+      return;
+    }
+    if(!jr.error && jr.data.status==='failed'){ res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">Search failed.</div>'; return; }
+  }
+  res.innerHTML='<div class="text-sm text-gray-400 text-center py-4">Search still running.</div>';
+}
+
+async function submitCrawlJob(){
+  const url=document.getElementById('crawlUrl').value.trim();
+  if(!url) return;
+  const st=document.getElementById('crawlStatus');
+  st.textContent="Submitting crawl job…";
+  const r = await fetchJson(`${BRIDGE}/jobs`, {method:'POST', body:JSON.stringify({job_id:'crawl-'+Date.now(), job_type:'normalize', payload:{url}})});
+  if(r.error){ st.textContent=`Failed: ${r.text||r.status}`; return; }
+  st.textContent=`Job ${r.data.job_id} submitted (auto-processed).`;
+  document.getElementById('crawlUrl').value='';
+}
+
+async function registerSource(ev){
+  ev.preventDefault();
+  const body = {source_id:document.getElementById('sSourceId').value, source_type:document.getElementById('sType').value, domain:document.getElementById('sDomain').value||null, category:document.getElementById('sCategory').value||null, reliability:parseFloat(document.getElementById('sReliability').value)||1};
+  const r = await fetchJson(`${CORE}/sources`, {method:'POST', body:JSON.stringify(body)});
+  if(r.error){ alert('Failed: '+r.text); return; }
+  closeModal('sourceModal'); loadRegistry();
+}
+
+function openSourceModal(){ document.getElementById('sourceModal').classList.remove('hidden'); document.getElementById('sourceForm').reset(); }
+function openInvModal(){ document.getElementById('invModal').classList.remove('hidden'); document.getElementById('invForm').reset(); }
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+
+async function createInvestigation(ev){
+  ev.preventDefault();
+  const body = {investigation_id:document.getElementById('iInvId').value, title:document.getElementById('iTitle').value, research_question:document.getElementById('iQuestion').value};
+  const r = await fetchJson(`${CORE}/investigations`, {method:'POST', body:JSON.stringify(body)});
+  if(r.error){ alert('Failed: '+r.text); return; }
+  closeModal('invModal'); loadInvestigations();
+}
+
+async function viewEvidence(id){
+  const r = await fetchJson(`${CORE}/evidence/${id}`);
+  if(r.error) return alert('Not found');
+  const e = r.data;
+  alert(`Evidence: ${e.evidence_id}\nURL: ${e.original_url}\nHash: ${e.content_hash}\nDoc ID: ${e.document_id||'none'}\nProvenance: ${JSON.stringify(e.provenance)}\nConfidence: ${e.confidence}\nCollected: ${e.collection_timestamp}`);
+}
+
+// init
+loadOverview();
+</script>
+</body>
+</html>

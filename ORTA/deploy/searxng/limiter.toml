@@ -1,0 +1,10 @@
+# SearXNG rate limiter config for ORTA deployment.
+# Disabled by default (private internal instance). Enable with
+# server.limiter: true in settings.yml and a Valkey/Redis backend.
+
+[botdetection.ip_limit]
+link_token = false
+
+[botdetection.ip_lists]
+pass_ip = []
+block_ip = []

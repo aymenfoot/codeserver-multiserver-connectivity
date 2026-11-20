@@ -1,0 +1,301 @@
+# ORTA platform Docker Compose (target-server deployment)
+#
+# Pinned versions (see docs/UPSTREAM-VERSION-MATRIX.md):
+#   SEARXNG_IMAGE=searxng/searxng:2026.11.11-626105eec
+#   RAGFLOW_IMAGE=infiniflow/ragflow:v1.0.0
+#
+# Usage (on target server with Docker + Compose):
+#   cp deploy/env/env.example .env
+#   # edit .env with real secrets
+#   docker compose -f deploy/compose/docker-compose.yml up -d
+#
+# All service-to-service traffic is internal. Only the UI port (3000) is
+# published; a reverse proxy should sit in front in production.
+
+version: "3.8"
+
+services:
+  # ------------------------------------------------------------------
+  # ORTA data plane
+  # ------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    container_name: orta-postgres
+    networks:
+      - orta-internal
+    environment:
+      POSTGRES_DB: orta
+      POSTGRES_USER: orta
+      POSTGRES_PASSWORD: ${ORTA_DB_PASSWORD:-REPLACE_ME}
+    volumes:
+      - orta-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orta -d orta"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    container_name: orta-redis
+    networks:
+      - orta-internal
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-REPLACE_ME}"]
+    volumes:
+      - orta-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-REPLACE_ME}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # ORTA custom components
+  # ------------------------------------------------------------------
+  orta-core:
+    build:
+      context: ../../
+      dockerfile: deploy/compose/Dockerfile.core
+    container_name: orta-core
+    networks:
+      - orta-internal
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ORTA_DATABASE_URL: ${ORTA_DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  orta-bridge:
+    build:
+      context: ../../
+      dockerfile: deploy/compose/Dockerfile.bridge
+    container_name: orta-bridge
+    networks:
+      - orta-internal
+    ports:
+      - "127.0.0.1:8001:8001"
+    environment:
+      ORTA_CORE_URL: ${ORTA_CORE_URL}
+      ORTA_SEARXNG_URL: ${ORTA_SEARXNG_URL}
+      ORTA_RAGFLOW_URL: ${ORTA_RAGFLOW_URL}
+      ORTA_RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-REPLACE_ME}
+    depends_on:
+      orta-core:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  orta-ui:
+    build:
+      context: ../../
+      dockerfile: deploy/compose/Dockerfile.ui
+    container_name: orta-ui
+    networks:
+      - orta-internal
+      - orta-frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      ORTA_CORE_URL: ${ORTA_CORE_URL}
+      ORTA_BRIDGE_URL: ${ORTA_BRIDGE_URL}
+    depends_on:
+      orta-core:
+        condition: service_healthy
+      orta-bridge:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Upstream: SearXNG (metasearch / discovery)
+  # ------------------------------------------------------------------
+  searxng:
+    image: ${SEARXNG_IMAGE}
+    container_name: searxng
+    networks:
+      - orta-internal
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+      - searxng-cache:/var/cache/searxng
+    environment:
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080/}
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-REPLACE_ME}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Upstream: RAGFlow (document processing, indexing, retrieval)
+  # ------------------------------------------------------------------
+  ragflow-mysql:
+    image: ${MYSQL_IMAGE:-mysql:8}
+    container_name: ragflow-mysql
+    networks:
+      - orta-internal
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-REPLACE_ME}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ragflow}
+      MYSQL_USER: ${RAGFLOW_DB_USER:-ragflow}
+      MYSQL_PASSWORD: ${RAGFLOW_DB_PASSWORD:-REPLACE_ME}
+    volumes:
+      - ragflow-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  ragflow-redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    container_name: ragflow-redis
+    networks:
+      - orta-internal
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-REPLACE_ME}"]
+    volumes:
+      - ragflow-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-REPLACE_ME}", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  ragflow-kvrocks:
+    image: ${KVROCKS_IMAGE:-gresearch/kvrocks:1.5.2}
+    container_name: ragflow-kvrocks
+    networks:
+      - orta-internal
+    volumes:
+      - ragflow-kvrocks-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  ragflow-minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2023-10-26T07-02-15Z}
+    container_name: ragflow-minio
+    networks:
+      - orta-internal
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-REPLACE_ME}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-REPLACE_ME}
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - ragflow-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  ragflow-elasticsearch:
+    image: ${ELASTICSEARCH_IMAGE:-elasticsearch:8.11.0}
+    container_name: ragflow-elasticsearch
+    networks:
+      - orta-internal
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    volumes:
+      - ragflow-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  ragflow:
+    image: ${RAGFLOW_IMAGE}
+    container_name: ragflow
+    networks:
+      - orta-internal
+    ports:
+      - "127.0.0.1:9380:9380"
+      - "127.0.0.1:9381:9381"
+    env_file:
+      - ./ragflow/.env
+    volumes:
+      - ./ragflow/service_conf.yaml.template:/ragflow/conf/service_conf.yaml.template:ro
+      - ragflow-logs:/ragflow/logs
+    environment:
+      KVROCKS_HOST: ragflow-kvrocks
+      KVROCKS_PORT: "6379"
+    depends_on:
+      ragflow-mysql:
+        condition: service_healthy
+      ragflow-redis:
+        condition: service_healthy
+      ragflow-kvrocks:
+        condition: service_healthy
+      ragflow-minio:
+        condition: service_healthy
+      ragflow-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9380/api/v1/system/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  orta-internal:
+    driver: bridge
+  orta-frontend:
+    driver: bridge
+
+volumes:
+  orta-pgdata:
+  orta-redisdata:
+  searxng-cache:
+  ragflow-mysql-data:
+  ragflow-redisdata:
+  ragflow-kvrocks-data:
+  ragflow-minio-data:
+  ragflow-es-data:
+  ragflow-logs:
